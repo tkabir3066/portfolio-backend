@@ -1,15 +1,90 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  bio       String?
+  contact   String?
+  picture   String?
+  role      Role   @default(USER)
+  status    UserStatus @default(ACTIVE)
+  isVerified Boolean   @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  blogs     Blog[]
+  projects  Project[]
+  skills    Skill[]
+  experiences Experience[]
+}
+
+model Blog {
+  id          String   @id @default(uuid())
+  title       String
+  content     String   @db.Text
+  thumbnail   String?
+  published   Boolean  @default(false)
+  slug        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  thumbnail   String?
+  liveUrl     String?
+  githubUrl   String?
+  features    String[] 
+  technologies String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+}
+
+model Skill {
+  id       String @id @default(uuid())
+  name     String
+  category String
+  level    String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+}
+
+model Experience {
+  id          String   @id @default(uuid())
+  company     String
+  position    String
+  description String   @db.Text
+  startDate   DateTime
+  endDate     DateTime?
+  current     Boolean  @default(false)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+}
+
+
+
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCK
 }
