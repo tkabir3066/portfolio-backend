@@ -2,6 +2,8 @@ import http, { Server } from "http";
 import app from "./app";
 import dotenv from "dotenv";
 import { connectToDatabase } from "./app/config/db";
+import { envVars } from "./app/config/env";
+import { seedAdmin } from "./app/utils/seedAdmin";
 
 dotenv.config();
 
@@ -11,8 +13,8 @@ async function startServer() {
   try {
     await connectToDatabase();
     server = http.createServer(app);
-    server.listen(process.env.PORT, () => {
-      console.log(`🚀 Server is running on port ${process.env.PORT}`);
+    server.listen(envVars.PORT, () => {
+      console.log(`🚀 Server is running on port ${envVars.PORT}`);
     });
 
     handleProcessEvents();
@@ -65,4 +67,7 @@ function handleProcessEvents() {
 }
 
 // Start the application
-startServer();
+(async () => {
+  await startServer();
+  await seedAdmin();
+})();
