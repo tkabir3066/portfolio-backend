@@ -1,11 +1,37 @@
-import { Prisma, User } from "@prisma/client";
-import { prisma } from "../config/db";
-import AppError from "../errorHelpers/AppError";
+import { Prisma, Role, User } from "@prisma/client";
+import { prisma } from "../../config/db";
+import bcryptjs from "bcryptjs";
+import AppError from "../../errorHelpers/AppError";
 import { StatusCodes } from "http-status-codes";
+import { JwtPayload } from "jsonwebtoken";
+import { envVars } from "../../config/env";
 
 const createUser = async (payload: Prisma.UserCreateInput): Promise<User> => {
+  const { email, password, ...rest } = payload;
+  const isUserExist = await prisma.user.findUnique({
+    where: {
+      email: email,
+    },
+  });
+
+  if (isUserExist) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "User with this email already exist"
+    );
+  }
+
+  //hashed password
+  const hashedPassword = await bcryptjs.hash(
+    password,
+    Number(process.env.BCRYPT_SALT_ROUND)
+  );
   const createdUser = await prisma.user.create({
-    data: payload,
+    data: {
+      email,
+      password: hashedPassword,
+      ...rest,
+    },
   });
   return createdUser;
 };
@@ -28,7 +54,12 @@ const getAllUsers = async () => {
       createdAt: "desc",
     },
   });
-  return allUsers;
+
+  const total = await prisma.user.count();
+  return {
+    data: allUsers,
+    totalUsers: total,
+  };
 };
 
 const getUserById = async (userId: string) => {
@@ -67,23 +98,31 @@ const deleteUser = async (userId: string) => {
   return deletedUser;
 };
 
-const updateUser = async (userId: string, payload: Partial<User>) => {
-  const isUserExist = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      isVerified: true,
-    },
-  });
+const updateUser = async (
+  userId: string,
+  payload: Partial<User>,
+  decodedToken: JwtPayload
+) => {
+  if (payload.role) {
+    if (decodedToken.role === Role.USER || decodedToken.role === Role.USER) {
+      throw new AppError(StatusCodes.FORBIDDEN, "You are not authorized");
+    }
 
-  if (!isUserExist) {
-    throw new AppError(StatusCodes.BAD_REQUEST, "User not found");
+    // promoting to  admin -->  admin
+    if (payload.role === Role.ADMIN && decodedToken.role === Role.ADMIN) {
+      throw new AppError(StatusCodes.FORBIDDEN, "You are not authorized");
+    }
   }
-  if (!isUserExist.isVerified) {
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      "User is not verified. Cannot update data."
+
+  //rehashing the password
+
+  if (payload.password) {
+    payload.password = await bcryptjs.hash(
+      payload.password,
+      Number(envVars.BCRYPT_SALT_ROUND)
     );
   }
+
   const updatedUser = await prisma.user.update({
     where: {
       id: userId,
