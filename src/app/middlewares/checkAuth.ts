@@ -21,10 +21,6 @@ export const checkAuth =
         envVars.JWT_ACCESS_SECRET
       ) as JwtPayload;
 
-      //   const isUserExist = await User.findOne({
-      //     email: verifiedToken.email,
-      //   });
-
       const isUserExist = await prisma.user.findUnique({
         where: {
           email: verifiedToken.email,
